@@ -139,8 +139,46 @@ most recent context or describe.  'top (default) places it after
 (defvar ruby-refactor-mode-hook nil
   "Hooks run during mode start")
 
+(defvar *ruby-refactor-project-root* nil
+  "Used internally to cache the project root.")
+
+(defvar *ruby-refactor-project-roots*
+  '(".git" ".hg" "Rakefile" "config.ru" "Gemfile")
+  "The presence of any file/directory in this list indicates a project root.")
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Helper functions
+(defun ruby-refactor-project-root ()
+  "Returns the current project root."
+  (message "default directory %s" default-directory)
+  (when (or
+         (null *ruby-refactor-project-root*)
+         (not (string-match *ruby-refactor-project-root* default-directory)))
+    (let ((root (ruby-refactor-find-project-root)))
+      (if root
+          (setq *ruby-refactor-project-root* (expand-file-name (concat root "/")))
+        (setq *ruby-refactor-project-root* nil))))
+  *ruby-refactor-project-root*)
+
+(defun root-match(root names)
+  (member (car names) (directory-files root)))
+
+(defun root-matches(root names)
+  (if (root-match root names)
+      (root-match root names)
+      (if (eq (length (cdr names)) 0)
+          'nil
+          (root-matches root (cdr names))
+          )))
+
+(defun ruby-refactor-find-project-root (&optional root)
+  "Determines the current project root by recursively searching for an indicator."
+  (when (null root) (setq root default-directory))
+  (cond
+   ((root-matches root *ruby-refactor-project-roots*)
+    (expand-file-name root))
+   ((equal (expand-file-name root) "/") nil)
+   (t (ruby-refactor-find-project-root (concat (file-name-as-directory root) "..")))))
+
 (defun ruby-refactor-line-contains-equal-p (line)
   "Returns if line contains an '='"
   (string-match "=" line))
@@ -307,6 +345,11 @@ If a region is not selected, the transformation uses the current line."
         (if (region-active-p)
             (ruby-refactor-extract-region-to-let flip-location)
           (ruby-refactor-extract-line-to-let flip-location))))))
+
+(defun ruby-refactor-rename-instance-variable() )
+  (let (path)
+    (setq path (ruby-refactor-project-root))
+    (message "Path is: %s" path)))
 
 (defun ruby-refactor-extract-local-variable()
   "Extracts selected text to local variable"
